@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FacilInspect</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161a22;
+    --surface2: #1e2330;
+    --border: #2a3045;
+    --accent: #00e5a0;
+    --accent-dim: rgba(0,229,160,0.10);
+    --accent-mid: rgba(0,229,160,0.30);
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e8eaf2;
+    --text-muted: #6b7494;
+    --text-dim: #3d4460;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+
+  .tag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 3px;
+    background: var(--accent-dim); color: var(--accent);
+  }
+  .tag.warn { background: rgba(245,158,11,.12); color: var(--warn); }
+  .tag.danger { background: rgba(239,68,68,.12); color: var(--danger); }
+  .tag.grey { background: rgba(107,116,148,.12); color: var(--text-muted); }
+
+  button { cursor: pointer; font-family: var(--sans); border: none; outline: none; }
+  .btn-primary {
+    background: var(--accent); color: #0d0f14; font-weight: 700; font-size: 14px;
+    letter-spacing: .04em; padding: 12px 28px; border-radius: 6px;
+    transition: opacity .2s, transform .15s;
+  }
+  .btn-primary:hover { opacity: .88; transform: translateY(-1px); }
+  .btn-primary:active { transform: none; }
+  .btn-primary:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+    font-size: 13px; padding: 9px 20px; border-radius: 6px; transition: border-color .2s, color .2s;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  input, textarea, select {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    font-family: var(--sans); font-size: 14px; border-radius: 6px; padding: 10px 14px;
+    width: 100%; outline: none; transition: border-color .2s;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  input::placeholder, textarea::placeholder { color: var(--text-dim); }
+  textarea { resize: vertical; min-height: 80px; }
+  label.field-label {
+    display: block; font-size: 11px; font-family: var(--mono); letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
+  }
+  .field { margin-bottom: 18px; }
+
+  /* TOPBAR */
+  #topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px; border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; background: rgba(13,15,20,.94);
+    backdrop-filter: blur(14px); z-index: 100; gap: 12px; flex-wrap: wrap;
+  }
+  .logo { font-family: var(--mono); font-size: 13px; letter-spacing: .15em; color: var(--accent); text-transform: uppercase; }
+  .logo span { color: var(--text-muted); }
+  #nav-tabs { display: flex; gap: 4px; }
+  .nav-tab {
+    background: transparent; border: 1px solid transparent; color: var(--text-muted);
+    font-size: 11px; font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase;
+    padding: 7px 14px; border-radius: 5px; transition: all .2s;
+  }
+  .nav-tab:hover { color: var(--text); border-color: var(--border); }
+  .nav-tab.active { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+
+  #inspector-badge {
+    display: none; align-items: center; gap: 8px;
+    background: var(--accent-dim); border: 1px solid var(--accent-mid);
+    border-radius: 20px; padding: 5px 12px 5px 10px;
+    font-size: 12px; font-family: var(--mono); color: var(--accent);
+  }
+  .badge-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; flex-shrink: 0; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  #inspector-badge button { background: none; color: var(--text-muted); font-size: 16px; padding: 0 0 0 4px; transition: color .2s; }
+  #inspector-badge button:hover { color: var(--danger); }
+
+  /* VIEWS */
+  .view { display: none; padding: 36px 24px; max-width: 920px; margin: 0 auto; }
+  .view.active { display: block; animation: fadeUp .3s ease; }
+  @keyframes fadeUp { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: none; } }
+
+  /* LOCATION VIEW */
+  .scan-hero {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 30px; margin-bottom: 24px; position: relative; overflow: hidden;
+  }
+  .scan-hero::before {
+    content:''; position: absolute; top:0; right:0; width:300px; height:300px;
+    background: radial-gradient(circle, rgba(0,229,160,.06) 0%, transparent 70%); pointer-events: none;
+  }
+  .loc-eyebrow {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .scan-hero h1 { font-size: 32px; font-weight: 700; letter-spacing: -.02em; margin-bottom: 14px; }
+  .status-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 26px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; flex-shrink: 0; }
+  .dot.warn { background: var(--warn); }
+  .dot.danger { background: var(--danger); }
+  .last-check-txt { font-size: 13px; color: var(--text-muted); }
+
+  .inspect-cta {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--accent); color: #0d0f14; font-weight: 700; font-size: 15px;
+    padding: 13px 30px; border-radius: 8px; border: none; cursor: pointer;
+    transition: opacity .2s, transform .15s; letter-spacing: .02em;
+  }
+  .inspect-cta:hover { opacity: .88; transform: translateY(-1px); }
+  .inspect-cta.locked {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted);
+  }
+  .inspect-cta.locked:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); transform: none; opacity: 1; }
+
+  /* recent list */
+  .recent-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 20px;
+  }
+  .recent-card-header {
+    padding: 13px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; font-family: var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted);
+  }
+  .recent-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .recent-row:last-child { border-bottom: none; }
+  .rr-left { display: flex; flex-direction: column; gap: 4px; }
+  .rr-time { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  .rr-note { font-size: 12px; color: var(--text-muted); }
+  .empty-state { text-align: center; padding: 32px; color: var(--text-dim); font-family: var(--mono); font-size: 12px; }
+
+  /* INSPECTION FORM */
+  .inspect-form-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 22px;
+  }
+  .ifc-header {
+    padding: 15px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .ifc-header h3 { font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+  .check-item {
+    display: flex; align-items: flex-start; gap: 14px; padding: 14px 20px;
+    border-bottom: 1px solid var(--border); transition: background .15s; cursor: pointer; user-select: none;
+  }
+  .check-item:last-child { border-bottom: none; }
+  .check-item:hover { background: var(--surface2); }
+  .check-item.checked { background: rgba(0,229,160,.05); }
+  .check-box {
+    width: 22px; height: 22px; border: 2px solid var(--border); border-radius: 5px;
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    transition: all .18s; margin-top: 1px;
+  }
+  .check-item.checked .check-box { border-color: var(--accent); background: var(--accent); }
+  .check-box svg { display: none; }
+  .check-item.checked .check-box svg { display: block; }
+  .check-title { font-size: 14px; font-weight: 500; }
+
+  .details-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 22px;
+  }
+  .details-card h3 {
+    font-size: 11px; font-family: var(--mono); letter-spacing: .1em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 18px;
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media(max-width:580px){ .form-row { grid-template-columns: 1fr; } }
+  .datetime-display {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 14px; font-family: var(--mono); font-size: 13px; color: var(--accent);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .submit-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .progress-txt { font-family: var(--mono); font-size: 12px; color: var(--text-muted); }
+  .progress-txt span { color: var(--accent); }
+
+  /* DASHBOARD */
+  .dash-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 26px; flex-wrap: wrap; gap: 14px; }
+  .dash-header h1 { font-size: 26px; font-weight: 700; }
+  .dash-header .sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; font-family: var(--mono); }
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 14px; margin-bottom: 26px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+  .stat-label { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .stat-value { font-size: 30px; font-weight: 700; font-family: var(--mono); color: var(--accent); line-height: 1; }
+  .stat-value.danger { color: var(--danger); }
+  .loc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 14px; margin-bottom: 30px; }
+  .loc-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; transition: border-color .2s; }
+  .loc-card:hover { border-color: var(--text-dim); }
+  .loc-name { font-size: 14px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .loc-meta { font-size: 12px; color: var(--text-muted); font-family: var(--mono); margin-bottom: 10px; line-height: 1.6; }
+  .progress-bar-wrap { background: var(--surface2); border-radius: 100px; height: 4px; margin-top: 10px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 100px; transition: width .5s ease; }
+
+  .log-section h2 { font-size: 15px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+  .filter-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .filter-row input, .filter-row select { width: auto; font-size: 13px; padding: 8px 12px; }
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  td { padding: 12px 16px; vertical-align: middle; white-space: nowrap; }
+  td.notes-cell { white-space: normal; max-width: 180px; font-size: 12px; color: var(--text-muted); }
+  .empty-row td { text-align: center; color: var(--text-dim); padding: 40px; font-family: var(--mono); font-size: 12px; }
+
+  /* SETTINGS */
+  .settings-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 26px; margin-bottom: 22px; }
+  .settings-section h2 { font-size: 12px; font-family: var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .list-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .list-item:last-child { border-bottom: none; }
+  .list-item-actions { display: flex; gap: 8px; align-items: center; }
+  .qr-btn { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-mid); font-size: 11px; font-family: var(--mono); letter-spacing: .08em; padding: 5px 12px; border-radius: 4px; cursor: pointer; transition: background .2s; }
+  .qr-btn:hover { background: rgba(0,229,160,.2); }
+  .del-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 18px; padding: 0 4px; transition: color .2s; }
+  .del-btn:hover { color: var(--danger); }
+  .add-row { display: flex; gap: 10px; margin-top: 14px; }
+  .add-row input { flex: 1; }
+  .code-block { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-family: var(--mono); font-size: 12px; color: #a0aec0; line-height: 1.7; overflow-x: auto; white-space: pre; margin-top: 14px; }
+
+  /* KEY DISPLAY */
+  .key-display {
+    background: var(--surface2); border: 1px solid var(--accent-mid); border-radius: 8px;
+    padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
+  }
+  .key-val { font-family: var(--mono); font-size: 22px; letter-spacing: .25em; color: var(--accent); font-weight: 600; }
+  .key-val.blurred { filter: blur(6px); user-select: none; transition: filter .3s; }
+  .key-actions { display: flex; gap: 8px; }
+  .key-action-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-family: var(--mono); color: var(--text-muted); padding: 6px 12px; cursor: pointer; transition: all .2s; }
+  .key-action-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* PASSWORD MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.8); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 36px; width: 90%; max-width: 380px;
+    animation: modalPop .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes modalPop { from { opacity:0; transform: scale(.92); } to { opacity:1; transform: none; } }
+  .modal-icon {
+    width: 52px; height: 52px; border-radius: 12px; background: var(--accent-dim); border: 1px solid var(--accent-mid);
+    display: flex; align-items: center; justify-content: center; margin-bottom: 20px;
+  }
+  .modal-box h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+  .modal-box p { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5; }
+  .pin-wrap { position: relative; margin-bottom: 10px; }
+  .pin-wrap input { padding-right: 44px; letter-spacing: .15em; font-family: var(--mono); font-size: 16px; }
+  .pin-vis { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; transition: color .2s; }
+  .pin-vis:hover { color: var(--text); }
+  #pin-error { font-size: 12px; color: var(--danger); min-height: 18px; margin-bottom: 16px; font-family: var(--mono); }
+  .modal-btns { display: flex; gap: 10px; }
+  .modal-btns .btn-primary { flex: 1; text-align: center; }
+
+  /* QR Modal */
+  #qr-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 300; align-items: center; justify-content: center; }
+  #qr-modal.open { display: flex; }
+  .qr-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 30px; text-align: center; max-width: 320px; width: 90%; }
+  .qr-box h3 { font-size: 18px; font-weight: 700; margin-bottom: 5px; }
+  .qr-box p { font-size: 11px; color: var(--text-muted); font-family: var(--mono); margin-bottom: 18px; word-break: break-all; }
+  #qr-canvas-wrap { background: white; padding: 12px; border-radius: 8px; display: inline-block; margin-bottom: 18px; }
+
+  /* toast */
+  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(70px); background: var(--accent); color: #0d0f14; font-weight: 700; font-size: 13px; padding: 12px 24px; border-radius: 8px; opacity: 0; z-index: 999; white-space: nowrap; transition: all .4s cubic-bezier(.34,1.56,.64,1); }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.err { background: var(--danger); color: white; }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(13,15,20,.3); border-top-color: #0d0f14; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="logo">FACIL<span>INSPECT</span></div>
+  <div id="nav-tabs">
+    <button class="nav-tab active" id="tab-location" onclick="showView('location')">Location</button>
+    <button class="nav-tab" id="tab-dashboard" onclick="showView('dashboard')">Dashboard</button>
+
+  </div>
+  <div id="inspector-badge">
+    <span class="badge-dot"></span>
+    <span id="badge-name">Inspector</span>
+    <button onclick="lockInspector()" title="End session">✕</button>
+  </div>
+</div>
+
+<!-- ══ LOCATION VIEW ══ -->
+<div id="view-location" class="view active">
+
+  <div class="scan-hero">
+    <div class="loc-eyebrow">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      Inspection Point
+    </div>
+    <h1 id="loc-title">—</h1>
+    <div class="status-row">
+      <span class="dot danger" id="loc-status-dot"></span>
+      <span class="last-check-txt" id="loc-last-txt">Loading…</span>
+    </div>
+    <button class="inspect-cta locked" id="inspect-cta-btn" onclick="handleInspectCTA()">
+      <svg id="cta-lock" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      <svg id="cta-check" style="display:none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      <span id="cta-txt">Inspector Login</span>
+    </button>
+  </div>
+
+  <!-- Inspection form — hidden until authenticated -->
+  <div id="form-wrap" style="display:none">
+    <div class="inspect-form-card">
+      <div class="ifc-header">
+        <h3>Inspection Checklist</h3>
+        <span id="check-count-tag" class="tag">0 / 0</span>
+      </div>
+      <div id="checklist-items"></div>
+    </div>
+    <div class="details-card">
+      <h3>Inspector Details</h3>
+      <div class="form-row">
+        <div class="field">
+          <label class="field-label">Inspector Name / ID</label>
+          <input type="text" id="inspector-name" placeholder="e.g. Ahmad bin Kamal" />
+        </div>
+        <div class="field">
+          <label class="field-label">Timestamp</label>
+          <div class="datetime-display">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <span id="live-clock">—</span>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Remarks / Notes (optional)</label>
+        <textarea id="inspector-notes" placeholder="Any issues, observations, or notes…"></textarea>
+      </div>
+      <div class="submit-row">
+        <span class="progress-txt">Checked: <span id="progress-txt">0 / 0</span></span>
+        <button class="btn-primary" id="submit-btn" onclick="submitInspection()" disabled>Submit Inspection</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent inspections (public) -->
+  <div class="recent-card">
+    <div class="recent-card-header">
+      <span>Recent Inspections — <span id="loc-recent-title">—</span></span>
+      <span class="tag grey" id="loc-count-tag">0 records</span>
+    </div>
+    <div id="recent-list"></div>
+  </div>
+</div>
+
+<!-- ══ DASHBOARD VIEW ══ -->
+<div id="view-dashboard" class="view">
+  <div class="dash-header">
+    <div>
+      <h1>Supervisor Dashboard</h1>
+      <div class="sub" id="dash-sub">All locations overview</div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-ghost" onclick="exportCSV()">Export CSV</button>
+      <button class="btn-ghost" onclick="loadDashboard()">↻ Refresh</button>
+    </div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-label">Locations</div><div class="stat-value" id="stat-locs">–</div></div>
+    <div class="stat-card"><div class="stat-label">Total Inspections</div><div class="stat-value" id="stat-total">–</div></div>
+    <div class="stat-card"><div class="stat-label">Today</div><div class="stat-value" id="stat-today">–</div></div>
+    <div class="stat-card"><div class="stat-label">Overdue (&gt;24h)</div><div class="stat-value danger" id="stat-overdue">–</div></div>
+  </div>
+  <div class="loc-grid" id="loc-grid"></div>
+  <div class="log-section">
+    <h2>Inspection Log <span class="tag" id="log-count-tag">0</span></h2>
+    <div class="filter-row">
+      <input type="text" placeholder="Search…" id="search-input" oninput="renderTable()" style="max-width:220px"/>
+      <select id="filter-loc" onchange="renderTable()"><option value="">All Locations</option></select>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Location</th><th>Inspector</th><th>Date &amp; Time</th><th>Items</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody id="log-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SETTINGS VIEW (admin only — access via ?admin=1) ══ -->
+<div id="view-settings" class="view">
+  <h1 style="font-size:24px;font-weight:700;margin-bottom:26px">Settings</h1>
+
+  <!-- Security Key -->
+  <div class="settings-section">
+    <h2>🔐 Inspector Security Key</h2>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;line-height:1.6">
+      Inspectors must enter this key to unlock the inspection form after scanning a QR code. Share only with authorised facility team members. Anyone else scanning the QR will only see the public dashboard.
+    </p>
+    <div class="key-display">
+      <div class="key-val blurred" id="key-display-val">INSPECT</div>
+      <div class="key-actions">
+        <button class="key-action-btn" id="key-toggle-btn" onclick="toggleKeyVis()">Show</button>
+        <button class="key-action-btn" onclick="copyKey()">Copy</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Change Security Key</label>
+      <div style="display:flex;gap:10px">
+        <input type="password" id="new-key-input" placeholder="New security key (min 4 characters)" style="flex:1"/>
+        <button class="btn-primary" onclick="saveKey()" style="white-space:nowrap;flex-shrink:0">Save Key</button>
+      </div>
+    </div>
+    <div style="background:rgba(0,229,160,.06);border:1px solid var(--accent-mid);border-radius:8px;padding:14px;font-size:12px;color:var(--text-muted);line-height:1.7">
+      💡 Default key is <strong style="color:var(--accent);letter-spacing:.1em">INSPECT</strong> — change this before giving access to your team.
+    </div>
+  </div>
+
+  <!-- Sheets -->
+  <div class="settings-section">
+    <h2>Google Sheets Integration</h2>
+    <div class="field">
+      <label class="field-label">Apps Script Web App URL</label>
+      <input type="url" id="sheets-url" placeholder="https://script.google.com/macros/s/…/exec" />
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+      <button class="btn-primary" onclick="saveSheetsConfig()">Save URL</button>
+      <button class="btn-ghost" onclick="testSheets()">Test Connection</button>
+    </div>
+    <div style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Setup Steps</div>
+    <ol style="font-size:13px;color:var(--text-muted);line-height:2.2;padding-left:18px;margin-bottom:12px">
+      <li>Open your Google Sheet → <strong style="color:var(--text)">Extensions → Apps Script</strong></li>
+      <li>Paste the code below → <strong style="color:var(--text)">Deploy → New deployment → Web App</strong></li>
+      <li>Set <em>Execute as: Me</em> and <em>Who has access: Anyone</em></li>
+      <li>Copy the Web App URL and paste it above</li>
+    </ol>
+    <div class="code-block">const SHEET_NAME = 'Inspections';
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const sheet = SpreadsheetApp.getActiveSpreadsheet()
+      .getSheetByName(SHEET_NAME);
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow(['Timestamp','Location','Inspector',
+        'Items Checked','Total Items','Notes','Submitted At']);
+    }
+    sheet.appendRow([
+      data.timestamp, data.location, data.inspector,
+      data.checkedItems, data.totalItems, data.notes,
+      new Date().toISOString()
+    ]);
+    return ContentService
+      .createTextOutput(JSON.stringify({status:'ok'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({status:'error',message:err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}</div>
+  </div>
+
+  <!-- Locations -->
+  <div class="settings-section">
+    <h2>Inspection Locations</h2>
+    <div id="loc-list"></div>
+    <div class="add-row">
+      <input type="text" id="new-loc-input" placeholder="New location (e.g. Server Room)" onkeydown="if(event.key==='Enter')addLocation()"/>
+      <button class="btn-primary" onclick="addLocation()">Add</button>
+    </div>
+  </div>
+
+  <!-- Checklist items -->
+  <div class="settings-section">
+    <h2>Checklist Items</h2>
+    <div id="checklist-settings-list"></div>
+    <div class="add-row">
+      <input type="text" id="new-check-input" placeholder="New checklist item" onkeydown="if(event.key==='Enter')addChecklistItem()"/>
+      <button class="btn-primary" onclick="addChecklistItem()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PASSWORD MODAL ══ -->
+<div class="modal-overlay" id="pin-modal">
+  <div class="modal-box">
+    <div class="modal-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+    </div>
+    <h2>Inspector Access</h2>
+    <p>Enter the security key to unlock the inspection form for <strong id="modal-loc-name" style="color:var(--text)">this location</strong>.</p>
+    <div class="pin-wrap">
+      <input type="password" id="pin-field" placeholder="Security key…" autocomplete="off"
+        onkeydown="if(event.key==='Enter')verifyPin()" />
+      <button class="pin-vis" onclick="togglePinVis()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="pin-eye">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </div>
+    <div id="pin-error"></div>
+    <div class="modal-btns">
+      <button class="btn-ghost" onclick="closePin()">Cancel</button>
+      <button class="btn-primary" onclick="verifyPin()">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<!-- QR Access Password Modal -->
+<div class="modal-overlay" id="qr-pin-modal">
+  <div class="modal-box">
+    <div class="modal-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3m3 0v.01M17 14v3m3-3h.01M20 20v.01"/></svg>
+    </div>
+    <h2>QR Code Access</h2>
+    <p>Enter the security key to generate and view the QR code for <strong id="qr-pin-loc-label" style="color:var(--text)">this location</strong>.</p>
+    <div class="pin-wrap">
+      <input type="password" id="qr-pin-field" placeholder="Security key…" autocomplete="off"
+        onkeydown="if(event.key==='Enter')verifyQRPin()" />
+      <button class="pin-vis" onclick="toggleQRPinVis()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="qr-pin-eye">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </div>
+    <div id="qr-pin-error"></div>
+    <div class="modal-btns">
+      <button class="btn-ghost" onclick="document.getElementById('qr-pin-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" onclick="verifyQRPin()">Show QR</button>
+    </div>
+  </div>
+</div>
+
+<!-- QR Modal -->
+<div id="qr-modal">
+  <div class="qr-box">
+    <h3 id="qr-loc-name">—</h3>
+    <p id="qr-url-text">—</p>
+    <div id="qr-canvas-wrap"><canvas id="qr-canvas"></canvas></div>
+    <div class="modal-btns" style="justify-content:center;gap:10px">
+      <button class="btn-primary" onclick="downloadQR()">Download</button>
+      <button class="btn-ghost" onclick="closeQR()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+// ══════════════════════ STATE ══════════════════════
+const DEFAULT_KEY = 'INSPECT';
+let state = {
+  locations: ['Lobby', 'Server Room', 'Cafeteria', 'Rooftop', 'Parking B1', 'Gym'],
+  checklistItems: [
+    'Area is clean and free of hazards',
+    'Equipment is in working order',
+    'Safety signs are visible',
+    'Fire extinguisher is accessible',
+    'Lights and ventilation functional'
+  ],
+  sheetsUrl: '',
+  inspectorKey: DEFAULT_KEY,
+  records: []
+};
+
+function loadState() {
+  try { const s = localStorage.getItem('facilInspectV2'); if (s) state = {...state, ...JSON.parse(s)}; } catch(e) {}
+}
+function saveState() { localStorage.setItem('facilInspectV2', JSON.stringify(state)); }
+loadState();
+
+// Session (not persisted across page loads intentionally)
+let isAuthed = false;
+let pinAttempts = 0;
+let checkedItems = {};
+let clockStarted = false;
+
+// URL param — detect location from QR scan
+const urlParams = new URLSearchParams(window.location.search);
+const locParam = urlParams.get('location');
+let currentLocation = locParam ? decodeURIComponent(locParam) : (state.locations[0] || 'General Area');
+
+// ══════════════════════ NAV ══════════════════════
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+  if (id === 'dashboard') loadDashboard();
+  if (id === 'settings') renderSettings();
+  if (id === 'location') renderLocView();
+}
+
+// ══════════════════════ LOCATION VIEW ══════════════════════
+function renderLocView() {
+  if (!state.locations.includes(currentLocation)) { state.locations.push(currentLocation); saveState(); }
+  document.getElementById('loc-title').textContent = currentLocation;
+  document.getElementById('loc-recent-title').textContent = currentLocation;
+  document.getElementById('modal-loc-name').textContent = currentLocation;
+  updateStatusRow();
+  renderRecentList();
+  if (!clockStarted) { startClock(); clockStarted = true; }
+  updateCTA();
+}
+
+function updateStatusRow() {
+  const recs = state.records.filter(r => r.location === currentLocation)
+    .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const dot = document.getElementById('loc-status-dot');
+  const txt = document.getElementById('loc-last-txt');
+  if (!recs.length) { dot.className = 'dot danger'; txt.textContent = 'No inspections recorded yet'; return; }
+  const last = recs[0];
+  const hours = (Date.now() - new Date(last.timestamp)) / 3600000;
+  const display = new Date(last.timestamp).toLocaleString('en-MY');
+  if (hours < 8) { dot.className = 'dot'; txt.textContent = `Last inspected: ${display} by ${last.inspector}`; }
+  else if (hours < 24) { dot.className = 'dot warn'; txt.textContent = `Due soon – last: ${display} by ${last.inspector}`; }
+  else { dot.className = 'dot danger'; txt.textContent = `⚠ Overdue – last inspected: ${display}`; }
+}
+
+function renderRecentList() {
+  const all = state.records.filter(r => r.location === currentLocation);
+  const recs = all.slice().sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 8);
+  document.getElementById('loc-count-tag').textContent = all.length + ' record' + (all.length !== 1 ? 's' : '');
+  const list = document.getElementById('recent-list');
+  if (!recs.length) { list.innerHTML = '<div class="empty-state">No inspections recorded for this location yet.</div>'; return; }
+  list.innerHTML = recs.map(r => {
+    const hours = (Date.now() - new Date(r.timestamp)) / 3600000;
+    const dc = hours < 8 ? '' : hours < 24 ? 'warn' : 'danger';
+    return `<div class="recent-row">
+      <div class="rr-left">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="dot ${dc}"></span>
+          <strong>${r.inspector}</strong>
+          <span class="tag ${r.checkedItems===r.totalItems?'':'warn'}">${r.checkedItems}/${r.totalItems} items</span>
+        </div>
+        <div class="rr-time">${new Date(r.timestamp).toLocaleString('en-MY')}</div>
+        ${r.notes ? `<div class="rr-note">${r.notes}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateCTA() {
+  const btn = document.getElementById('inspect-cta-btn');
+  const txt = document.getElementById('cta-txt');
+  const lockIcon = document.getElementById('cta-lock');
+  const checkIcon = document.getElementById('cta-check');
+  const formWrap = document.getElementById('form-wrap');
+  const badge = document.getElementById('inspector-badge');
+
+  if (isAuthed) {
+    btn.className = 'inspect-cta';
+    lockIcon.style.display = 'none'; checkIcon.style.display = 'block';
+    txt.textContent = 'Start Inspection ↓';
+    formWrap.style.display = 'block';
+    badge.style.display = 'flex';
+  } else {
+    btn.className = 'inspect-cta locked';
+    lockIcon.style.display = 'block'; checkIcon.style.display = 'none';
+    txt.textContent = 'Inspector Login';
+    formWrap.style.display = 'none';
+    badge.style.display = 'none';
+  }
+}
+
+function handleInspectCTA() {
+  if (isAuthed) {
+    document.getElementById('form-wrap').scrollIntoView({ behavior: 'smooth' });
+  } else {
+    openPinModal();
+  }
+}
+
+// ══════════════════════ PIN MODAL ══════════════════════
+function openPinModal() {
+  document.getElementById('pin-field').value = '';
+  document.getElementById('pin-error').textContent = '';
+  document.getElementById('pin-modal').classList.add('open');
+  setTimeout(() => document.getElementById('pin-field').focus(), 120);
+}
+
+function closePin() { document.getElementById('pin-modal').classList.remove('open'); }
+
+function togglePinVis() {
+  const f = document.getElementById('pin-field');
+  const eye = document.getElementById('pin-eye');
+  if (f.type === 'password') {
+    f.type = 'text';
+    eye.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>`;
+  } else {
+    f.type = 'password';
+    eye.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+  }
+}
+
+function toggleQRPinVis() {
+  const f = document.getElementById('qr-pin-field');
+  const eye = document.getElementById('qr-pin-eye');
+  if (f.type === 'password') {
+    f.type = 'text';
+    eye.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>`;
+  } else {
+    f.type = 'password';
+    eye.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+  }
+}
+
+function verifyPin() {
+  const entered = document.getElementById('pin-field').value.trim();
+  const errEl = document.getElementById('pin-error');
+  if (!entered) { errEl.textContent = 'Please enter the security key.'; return; }
+
+  if (entered === state.inspectorKey) {
+    pinAttempts = 0;
+    isAuthed = true;
+    closePin();
+    renderChecklist();
+    updateCTA();
+    showToast('✓ Inspector mode unlocked');
+    setTimeout(() => document.getElementById('form-wrap').scrollIntoView({ behavior: 'smooth' }), 350);
+  } else {
+    pinAttempts++;
+    errEl.textContent = pinAttempts >= 3
+      ? `Incorrect key — ${pinAttempts} failed attempts. Contact your supervisor.`
+      : 'Incorrect security key. Please try again.';
+    document.getElementById('pin-field').select();
+  }
+}
+
+function lockInspector() {
+  isAuthed = false; pinAttempts = 0; checkedItems = {};
+  document.getElementById('inspector-name').value = '';
+  document.getElementById('inspector-notes').value = '';
+  updateCTA();
+  showToast('Inspector session ended');
+}
+
+// ══════════════════════ CHECKLIST ══════════════════════
+function renderChecklist() {
+  checkedItems = {};
+  const container = document.getElementById('checklist-items');
+  container.innerHTML = '';
+  state.checklistItems.forEach((item, i) => {
+    checkedItems[i] = false;
+    const el = document.createElement('div');
+    el.className = 'check-item'; el.id = 'ci-' + i;
+    el.onclick = () => toggleCheck(i);
+    el.innerHTML = `
+      <div class="check-box">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0d0f14" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="check-title">${item}</div>`;
+    container.appendChild(el);
+  });
+  updateProgress();
+}
+
+function toggleCheck(i) {
+  checkedItems[i] = !checkedItems[i];
+  document.getElementById('ci-' + i).classList.toggle('checked', checkedItems[i]);
+  updateProgress();
+}
+
+function updateProgress() {
+  const total = state.checklistItems.length;
+  const done = Object.values(checkedItems).filter(Boolean).length;
+  document.getElementById('check-count-tag').textContent = `${done} / ${total}`;
+  document.getElementById('progress-txt').textContent = `${done} / ${total}`;
+  document.getElementById('submit-btn').disabled = done === 0;
+}
+
+function startClock() {
+  function tick() {
+    document.getElementById('live-clock').textContent =
+      new Date().toLocaleString('en-MY', {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+// ══════════════════════ SUBMIT ══════════════════════
+async function submitInspection() {
+  const inspector = document.getElementById('inspector-name').value.trim();
+  if (!inspector) {
+    document.getElementById('inspector-name').style.borderColor = 'var(--danger)';
+    document.getElementById('inspector-name').focus();
+    setTimeout(() => document.getElementById('inspector-name').style.borderColor = '', 2000);
+    return;
+  }
+  const total = state.checklistItems.length;
+  const done = Object.values(checkedItems).filter(Boolean).length;
+  const record = {
+    id: Date.now(), timestamp: new Date().toISOString(),
+    location: currentLocation, inspector,
+    checkedItems: done, totalItems: total,
+    notes: document.getElementById('inspector-notes').value.trim(),
+    status: done === total ? 'Complete' : 'Partial'
+  };
+  state.records.push(record); saveState();
+
+  const btn = document.getElementById('submit-btn');
+  btn.innerHTML = '<span class="spinner"></span>Submitting…'; btn.disabled = true;
+
+  if (state.sheetsUrl) {
+    try {
+      await fetch(state.sheetsUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body: JSON.stringify(record) });
+    } catch(e) { console.warn('Sheets sync failed', e); }
+  }
+
+  btn.innerHTML = 'Submit Inspection';
+  document.getElementById('badge-name').textContent = inspector;
+  showToast('✓ Inspection submitted!');
+
+  setTimeout(() => {
+    renderChecklist();
+    document.getElementById('inspector-notes').value = '';
+    updateStatusRow(); renderRecentList();
+    btn.disabled = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, 500);
+}
+
+// ══════════════════════ DASHBOARD ══════════════════════
+function loadDashboard() {
+  const records = state.records.slice().sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const today = new Date().toDateString();
+  const todayCount = records.filter(r => new Date(r.timestamp).toDateString() === today).length;
+  let overdue = 0;
+  state.locations.forEach(loc => {
+    const r = records.filter(x => x.location === loc);
+    if (!r.length || (Date.now() - new Date(r[0].timestamp)) > 86400000) overdue++;
+  });
+  document.getElementById('stat-locs').textContent = state.locations.length;
+  document.getElementById('stat-total').textContent = records.length;
+  document.getElementById('stat-today').textContent = todayCount;
+  document.getElementById('stat-overdue').textContent = overdue;
+  document.getElementById('dash-sub').textContent = `Updated: ${new Date().toLocaleTimeString('en-MY')}`;
+
+  const grid = document.getElementById('loc-grid');
+  grid.innerHTML = '';
+  state.locations.forEach(loc => {
+    const lr = records.filter(r => r.location === loc);
+    const last = lr[0];
+    const hours = last ? (Date.now() - new Date(last.timestamp)) / 3600000 : Infinity;
+    let sc = 'danger', sl = 'No Record';
+    if (last) { if (hours < 8) { sc=''; sl='Good'; } else if (hours < 24) { sc='warn'; sl='Due Soon'; } else { sc='danger'; sl='Overdue'; } }
+    const pct = last ? Math.round(last.checkedItems/last.totalItems*100) : 0;
+    grid.innerHTML += `<div class="loc-card">
+      <div class="loc-name"><span class="dot ${sc}"></span>${loc}</div>
+      <div class="loc-meta">${last ? new Date(last.timestamp).toLocaleString('en-MY') : '–'}<br>${lr.length} inspection${lr.length!==1?'s':''} total</div>
+      ${last ? `<div style="font-size:12px;color:var(--text-muted)">Last by <strong style="color:var(--text)">${last.inspector}</strong></div>` : ''}
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+        <span class="tag ${sc}">${sl}</span>
+        <span style="font-size:11px;font-family:var(--mono);color:var(--text-muted)">${pct}%</span>
+      </div>
+    </div>`;
+  });
+
+  const sel = document.getElementById('filter-loc');
+  sel.innerHTML = '<option value="">All Locations</option>';
+  state.locations.forEach(l => { sel.innerHTML += `<option>${l}</option>`; });
+  renderTable();
+}
+
+function renderTable() {
+  const search = document.getElementById('search-input').value.toLowerCase();
+  const fl = document.getElementById('filter-loc').value;
+  let records = state.records.slice().sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+  if (fl) records = records.filter(r => r.location === fl);
+  if (search) records = records.filter(r =>
+    r.location.toLowerCase().includes(search) || r.inspector.toLowerCase().includes(search) || (r.notes||'').toLowerCase().includes(search));
+  document.getElementById('log-count-tag').textContent = `${records.length} record${records.length!==1?'s':''}`;
+  const tbody = document.getElementById('log-tbody');
+  if (!records.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No records found.</td></tr>'; return; }
+  tbody.innerHTML = records.map((r, i) => {
+    const hours = (Date.now() - new Date(r.timestamp)) / 3600000;
+    let sc='', sl='Complete';
+    if (r.checkedItems < r.totalItems) { sc='warn'; sl='Partial'; }
+    if (hours > 24) { sc='danger'; sl='Old'; }
+    return `<tr>
+      <td style="color:var(--text-muted);font-family:var(--mono);font-size:12px">${records.length-i}</td>
+      <td><strong>${r.location}</strong></td>
+      <td>${r.inspector}</td>
+      <td style="font-family:var(--mono);font-size:12px">${new Date(r.timestamp).toLocaleString('en-MY')}</td>
+      <td style="font-family:var(--mono)">${r.checkedItems} / ${r.totalItems}</td>
+      <td><span class="tag ${sc}">${sl}</span></td>
+      <td class="notes-cell">${r.notes||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function exportCSV() {
+  const records = state.records.slice().sort((a,b) => new Date(b.timestamp)-new Date(a.timestamp));
+  const rows = records.map((r,i) => [i+1,r.location,r.inspector,new Date(r.timestamp).toLocaleString('en-MY'),r.checkedItems,r.totalItems,r.status||'',`"${(r.notes||'').replace(/"/g,'""')}"`]);
+  const csv = [['#','Location','Inspector','Timestamp','Items Checked','Total Items','Status','Notes'],...rows].map(r=>r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = `inspections_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+}
+
+// ══════════════════════ SETTINGS ══════════════════════
+let keyVis = false;
+function renderSettings() {
+  document.getElementById('sheets-url').value = state.sheetsUrl || '';
+  document.getElementById('key-display-val').textContent = state.inspectorKey;
+  document.getElementById('key-display-val').classList.add('blurred');
+  document.getElementById('key-toggle-btn').textContent = 'Show';
+  keyVis = false;
+  renderLocList(); renderChecklistSettings();
+}
+
+function toggleKeyVis() {
+  keyVis = !keyVis;
+  const el = document.getElementById('key-display-val');
+  el.classList.toggle('blurred', !keyVis);
+  document.getElementById('key-toggle-btn').textContent = keyVis ? 'Hide' : 'Show';
+}
+
+function copyKey() {
+  navigator.clipboard.writeText(state.inspectorKey).then(() => showToast('✓ Key copied!'));
+}
+
+function saveKey() {
+  const val = document.getElementById('new-key-input').value.trim();
+  if (val.length < 4) { showToast('Key must be at least 4 characters', true); return; }
+  state.inspectorKey = val; saveState();
+  document.getElementById('new-key-input').value = '';
+  document.getElementById('key-display-val').textContent = val;
+  document.getElementById('key-display-val').classList.add('blurred');
+  keyVis = false; document.getElementById('key-toggle-btn').textContent = 'Show';
+  isAuthed = false; updateCTA();
+  showToast('✓ Security key updated!');
+}
+
+function saveSheetsConfig() {
+  state.sheetsUrl = document.getElementById('sheets-url').value.trim(); saveState();
+  showToast('✓ Sheets URL saved!');
+}
+
+async function testSheets() {
+  if (!state.sheetsUrl) { showToast('Enter a URL first', true); return; }
+  try {
+    await fetch(state.sheetsUrl, { method:'POST', mode:'no-cors', body: JSON.stringify({ test:true, timestamp:new Date().toISOString(), location:'TEST', inspector:'Test', checkedItems:0, totalItems:0, notes:'Connection test' }) });
+    showToast('✓ Test sent! Check your sheet.');
+  } catch(e) { showToast('Connection failed', true); }
+}
+
+function renderLocList() {
+  const list = document.getElementById('loc-list'); list.innerHTML = '';
+  state.locations.forEach((loc, i) => {
+    const d = document.createElement('div'); d.className = 'list-item';
+    d.innerHTML = `<span>${loc}</span><div class="list-item-actions">
+      <button class="qr-btn" onclick="openQR('${loc.replace(/'/g,"\\'")}')">QR Code</button>
+      <button class="del-btn" onclick="removeLocation(${i})">×</button></div>`;
+    list.appendChild(d);
+  });
+}
+function addLocation() {
+  const val = document.getElementById('new-loc-input').value.trim();
+  if (!val || state.locations.includes(val)) return;
+  state.locations.push(val); saveState();
+  document.getElementById('new-loc-input').value = '';
+  renderLocList(); showToast(`✓ Added: ${val}`);
+}
+function removeLocation(i) { state.locations.splice(i,1); saveState(); renderLocList(); }
+
+function renderChecklistSettings() {
+  const list = document.getElementById('checklist-settings-list'); list.innerHTML = '';
+  state.checklistItems.forEach((item, i) => {
+    const d = document.createElement('div'); d.className = 'list-item';
+    d.innerHTML = `<span style="font-size:13px">${item}</span><button class="del-btn" onclick="removeChecklistItem(${i})">×</button>`;
+    list.appendChild(d);
+  });
+}
+function addChecklistItem() {
+  const val = document.getElementById('new-check-input').value.trim(); if (!val) return;
+  state.checklistItems.push(val); saveState();
+  document.getElementById('new-check-input').value = '';
+  renderChecklistSettings(); showToast('✓ Item added');
+}
+function removeChecklistItem(i) { state.checklistItems.splice(i,1); saveState(); renderChecklistSettings(); }
+
+// ══════════════════════ QR ══════════════════════
+let qrInst = null;
+let pendingQRLoc = null;
+
+function openQR(loc) {
+  pendingQRLoc = loc;
+  document.getElementById('qr-pin-loc-label').textContent = loc;
+  document.getElementById('qr-pin-field').value = '';
+  document.getElementById('qr-pin-error').textContent = '';
+  document.getElementById('qr-pin-modal').classList.add('open');
+  setTimeout(() => document.getElementById('qr-pin-field').focus(), 120);
+}
+
+function verifyQRPin() {
+  const entered = document.getElementById('qr-pin-field').value.trim();
+  const errEl = document.getElementById('qr-pin-error');
+  if (!entered) { errEl.textContent = 'Please enter the security key.'; return; }
+  if (entered !== state.inspectorKey) { errEl.textContent = 'Incorrect security key.'; document.getElementById('qr-pin-field').select(); return; }
+  document.getElementById('qr-pin-modal').classList.remove('open');
+  showQRCode(pendingQRLoc);
+}
+
+function showQRCode(loc) {
+  const base = window.location.href.split('?')[0];
+  const url = `${base}?location=${encodeURIComponent(loc)}`;
+  document.getElementById('qr-loc-name').textContent = loc;
+  document.getElementById('qr-url-text').textContent = url;
+  document.getElementById('qr-canvas-wrap').innerHTML = '<canvas id="qr-canvas"></canvas>';
+  qrInst = new QRCode(document.getElementById('qr-canvas'), {
+    text: url, width: 200, height: 200, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.H
+  });
+  document.getElementById('qr-modal').classList.add('open');
+}
+function closeQR() { document.getElementById('qr-modal').classList.remove('open'); }
+function downloadQR() {
+  const el = document.querySelector('#qr-canvas-wrap canvas') || document.querySelector('#qr-canvas-wrap img');
+  const a = document.createElement('a');
+  a.href = el.tagName === 'CANVAS' ? el.toDataURL('image/png') : el.src;
+  a.download = `QR_${document.getElementById('qr-loc-name').textContent}.png`; a.click();
+}
+document.getElementById('qr-pin-modal').addEventListener('click', e => { if (e.target===document.getElementById('qr-pin-modal')) document.getElementById('qr-pin-modal').classList.remove('open'); });
+document.getElementById('qr-modal').addEventListener('click', e => { if (e.target===document.getElementById('qr-modal')) closeQR(); });
+document.getElementById('pin-modal').addEventListener('click', e => { if (e.target===document.getElementById('pin-modal')) closePin(); });
+
+// ══════════════════════ TOAST ══════════════════════
+function showToast(msg, isErr=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = isErr ? 'err' : '';
+  t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ══════════════════════ INIT ══════════════════════
+// Show settings tab only if ?admin=1 is in the URL
+if (urlParams.get('admin') === '1') {
+  const settingsTab = document.createElement('button');
+  settingsTab.className = 'nav-tab';
+  settingsTab.id = 'tab-settings';
+  settingsTab.textContent = 'Settings';
+  settingsTab.onclick = () => showView('settings');
+  document.getElementById('nav-tabs').appendChild(settingsTab);
+}
+renderLocView();
+</script>
+</body>
+</html>
