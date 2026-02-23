@@ -414,6 +414,16 @@
       This password is required to access this Settings page via <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:12px">?admin=1</code>. Keep it separate from the inspector security key.
     </p>
     <div class="field">
+      <label class="field-label">Current Admin Password</label>
+      <div class="key-display">
+        <div class="key-val blurred" id="admin-pwd-display-val">ADMIN1234</div>
+        <div class="key-actions">
+          <button class="key-action-btn" id="admin-pwd-toggle-btn" onclick="toggleAdminPwdVis()">Show</button>
+          <button class="key-action-btn" onclick="copyAdminPwd()">Copy</button>
+        </div>
+      </div>
+    </div>
+    <div class="field">
       <label class="field-label">Change Admin Password</label>
       <div style="display:flex;gap:10px">
         <input type="password" id="new-admin-pwd-input" placeholder="New admin password (min 6 characters)" style="flex:1"/>
@@ -421,7 +431,7 @@
       </div>
     </div>
     <div style="background:rgba(0,229,160,.06);border:1px solid var(--accent-mid);border-radius:8px;padding:14px;font-size:12px;color:var(--text-muted);line-height:1.7">
-      💡 Default admin password is <strong style="color:var(--accent);letter-spacing:.1em">123456</strong> — change this immediately.
+      💡 Default admin password is <strong style="color:var(--accent);letter-spacing:.1em">ADMIN1234</strong> — change this immediately.
     </div>
   </div>
 
@@ -621,7 +631,7 @@ let state = {
   ],
   sheetsUrl: '',
   inspectorKey: DEFAULT_KEY,
-  adminPassword: '123456',
+  adminPassword: 'ADMIN1234',
   records: []
 };
 
@@ -971,6 +981,10 @@ function renderSettings() {
   document.getElementById('key-display-val').classList.add('blurred');
   document.getElementById('key-toggle-btn').textContent = 'Show';
   keyVis = false;
+  document.getElementById('admin-pwd-display-val').textContent = state.adminPassword;
+  document.getElementById('admin-pwd-display-val').classList.add('blurred');
+  document.getElementById('admin-pwd-toggle-btn').textContent = 'Show';
+  adminPwdVis = false;
   renderLocList(); renderChecklistSettings();
 }
 
@@ -997,11 +1011,26 @@ function saveKey() {
   showToast('✓ Security key updated!');
 }
 
+let adminPwdVis = false;
+function toggleAdminPwdVis() {
+  adminPwdVis = !adminPwdVis;
+  const el = document.getElementById('admin-pwd-display-val');
+  el.classList.toggle('blurred', !adminPwdVis);
+  document.getElementById('admin-pwd-toggle-btn').textContent = adminPwdVis ? 'Hide' : 'Show';
+}
+function copyAdminPwd() {
+  navigator.clipboard.writeText(state.adminPassword).then(() => showToast('✓ Admin password copied!'));
+}
+
 function saveAdminPassword() {
   const val = document.getElementById('new-admin-pwd-input').value.trim();
   if (val.length < 6) { showToast('Admin password must be at least 6 characters', true); return; }
   state.adminPassword = val; saveState();
   document.getElementById('new-admin-pwd-input').value = '';
+  document.getElementById('admin-pwd-display-val').textContent = val;
+  document.getElementById('admin-pwd-display-val').classList.add('blurred');
+  adminPwdVis = false;
+  document.getElementById('admin-pwd-toggle-btn').textContent = 'Show';
   showToast('✓ Admin password updated!');
 }
 
@@ -1179,5 +1208,3 @@ renderLocView();
 </script>
 </body>
 </html>
-
-
