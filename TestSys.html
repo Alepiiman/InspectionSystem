@@ -613,7 +613,7 @@ function doPost(e) {
 
 <div id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
 <script>
 // ══════════════════════ STATE ══════════════════════
 const DEFAULT_KEY = 'INSPECT';
@@ -1096,7 +1096,6 @@ function addChecklistItem() {
 function removeChecklistItem(i) { state.checklistItems.splice(i,1); saveState(); renderChecklistSettings(); }
 
 // ══════════════════════ QR ══════════════════════
-let qrInst = null;
 let pendingQRLoc = null;
 
 function openQR(loc) {
@@ -1118,22 +1117,59 @@ function verifyQRPin() {
 }
 
 function showQRCode(loc) {
-  const base = window.location.href.split('?')[0];
+  const base = window.location.origin + window.location.pathname;
   const url = `${base}?location=${encodeURIComponent(loc)}`;
   document.getElementById('qr-loc-name').textContent = loc;
   document.getElementById('qr-url-text').textContent = url;
-  document.getElementById('qr-canvas-wrap').innerHTML = '<canvas id="qr-canvas"></canvas>';
-  qrInst = new QRCode(document.getElementById('qr-canvas'), {
-    text: url, width: 200, height: 200, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.H
-  });
+
+  const wrap = document.getElementById('qr-canvas-wrap');
+  wrap.innerHTML = '<div style="width:200px;height:200px;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px">Loading…</div>';
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.width = 200;
+  img.height = 200;
+  img.style.display = 'block';
+  img.alt = 'QR Code';
+  img.onload = () => { wrap.innerHTML = ''; wrap.appendChild(img); };
+  img.onerror = () => {
+    wrap.innerHTML = `<div style="width:200px;padding:16px;text-align:center;color:#333;font-size:11px;font-family:monospace;word-break:break-all">
+      <div style="font-size:32px;margin-bottom:8px">⚠️</div>
+      No internet connection.<br><br>Use this URL in any QR generator:<br><br>
+      <strong style="font-size:10px">${url}</strong>
+    </div>`;
+  };
+  img.src = `https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(url)}&choe=UTF-8&chld=H|1`;
+
   document.getElementById('qr-modal').classList.add('open');
 }
+
 function closeQR() { document.getElementById('qr-modal').classList.remove('open'); }
+
 function downloadQR() {
-  const el = document.querySelector('#qr-canvas-wrap canvas') || document.querySelector('#qr-canvas-wrap img');
-  const a = document.createElement('a');
-  a.href = el.tagName === 'CANVAS' ? el.toDataURL('image/png') : el.src;
-  a.download = `QR_${document.getElementById('qr-loc-name').textContent}.png`; a.click();
+  const locName = document.getElementById('qr-loc-name').textContent;
+  const img = document.querySelector('#qr-canvas-wrap img');
+  if (!img) { showToast('QR not ready yet', true); return; }
+  // Draw to canvas then download
+  const canvas = document.createElement('canvas');
+  canvas.width = 200; canvas.height = 200;
+  const ctx = canvas.getContext('2d');
+  const tmp = new Image();
+  tmp.crossOrigin = 'anonymous';
+  tmp.onload = () => {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 200, 200);
+    ctx.drawImage(tmp, 0, 0, 200, 200);
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = `QR_${locName}.png`;
+    a.click();
+  };
+  tmp.onerror = () => {
+    // Direct open as fallback
+    window.open(img.src, '_blank');
+  };
+  tmp.src = img.src;
 }
 document.getElementById('admin-pin-modal').addEventListener('click', e => { if (e.target===document.getElementById('admin-pin-modal')) document.getElementById('admin-pin-modal').classList.remove('open'); });
 document.getElementById('qr-pin-modal').addEventListener('click', e => { if (e.target===document.getElementById('qr-pin-modal')) document.getElementById('qr-pin-modal').classList.remove('open'); });
