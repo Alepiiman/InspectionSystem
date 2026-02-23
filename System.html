@@ -407,6 +407,24 @@
 <div id="view-settings" class="view">
   <h1 style="font-size:24px;font-weight:700;margin-bottom:26px">Settings</h1>
 
+  <!-- Admin Password -->
+  <div class="settings-section">
+    <h2>🛡️ Admin Password</h2>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;line-height:1.6">
+      This password is required to access this Settings page via <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:12px">?admin=1</code>. Keep it separate from the inspector security key.
+    </p>
+    <div class="field">
+      <label class="field-label">Change Admin Password</label>
+      <div style="display:flex;gap:10px">
+        <input type="password" id="new-admin-pwd-input" placeholder="New admin password (min 6 characters)" style="flex:1"/>
+        <button class="btn-primary" onclick="saveAdminPassword()" style="white-space:nowrap;flex-shrink:0">Save</button>
+      </div>
+    </div>
+    <div style="background:rgba(0,229,160,.06);border:1px solid var(--accent-mid);border-radius:8px;padding:14px;font-size:12px;color:var(--text-muted);line-height:1.7">
+      💡 Default admin password is <strong style="color:var(--accent);letter-spacing:.1em">ADMIN1234</strong> — change this immediately.
+    </div>
+  </div>
+
   <!-- Security Key -->
   <div class="settings-section">
     <h2>🔐 Inspector Security Key</h2>
@@ -523,6 +541,31 @@ function doPost(e) {
   </div>
 </div>
 
+<!-- Admin Password Modal -->
+<div class="modal-overlay" id="admin-pin-modal">
+  <div class="modal-box">
+    <div class="modal-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    </div>
+    <h2>Admin Access</h2>
+    <p>Enter the admin password to access system settings.</p>
+    <div class="pin-wrap">
+      <input type="password" id="admin-pin-field" placeholder="Admin password…" autocomplete="off"
+        onkeydown="if(event.key==='Enter')verifyAdminPin()" />
+      <button class="pin-vis" onclick="toggleAdminPinVis()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="admin-pin-eye">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </div>
+    <div id="admin-pin-error"></div>
+    <div class="modal-btns">
+      <button class="btn-ghost" onclick="document.getElementById('admin-pin-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" onclick="verifyAdminPin()">Enter</button>
+    </div>
+  </div>
+</div>
+
 <!-- QR Access Password Modal -->
 <div class="modal-overlay" id="qr-pin-modal">
   <div class="modal-box">
@@ -578,6 +621,7 @@ let state = {
   ],
   sheetsUrl: '',
   inspectorKey: DEFAULT_KEY,
+  adminPassword: 'ADMIN1234',
   records: []
 };
 
@@ -600,6 +644,8 @@ let currentLocation = locParam ? decodeURIComponent(locParam) : (state.locations
 
 // ══════════════════════ NAV ══════════════════════
 function showView(id) {
+  // Block settings access if not admin authenticated
+  if (id === 'settings' && !isAdminAuthed) return;
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('view-' + id).classList.add('active');
@@ -950,6 +996,14 @@ function saveKey() {
   showToast('✓ Security key updated!');
 }
 
+function saveAdminPassword() {
+  const val = document.getElementById('new-admin-pwd-input').value.trim();
+  if (val.length < 6) { showToast('Admin password must be at least 6 characters', true); return; }
+  state.adminPassword = val; saveState();
+  document.getElementById('new-admin-pwd-input').value = '';
+  showToast('✓ Admin password updated!');
+}
+
 function saveSheetsConfig() {
   state.sheetsUrl = document.getElementById('sheets-url').value.trim(); saveState();
   showToast('✓ Sheets URL saved!');
@@ -1054,6 +1108,7 @@ function downloadQR() {
   a.href = el.tagName === 'CANVAS' ? el.toDataURL('image/png') : el.src;
   a.download = `QR_${document.getElementById('qr-loc-name').textContent}.png`; a.click();
 }
+document.getElementById('admin-pin-modal').addEventListener('click', e => { if (e.target===document.getElementById('admin-pin-modal')) document.getElementById('admin-pin-modal').classList.remove('open'); });
 document.getElementById('qr-pin-modal').addEventListener('click', e => { if (e.target===document.getElementById('qr-pin-modal')) document.getElementById('qr-pin-modal').classList.remove('open'); });
 document.getElementById('qr-modal').addEventListener('click', e => { if (e.target===document.getElementById('qr-modal')) closeQR(); });
 document.getElementById('pin-modal').addEventListener('click', e => { if (e.target===document.getElementById('pin-modal')) closePin(); });
@@ -1067,14 +1122,59 @@ function showToast(msg, isErr=false) {
 
 // ══════════════════════ INIT ══════════════════════
 // Show settings tab only if ?admin=1 is in the URL
+// ══════════════════════ ADMIN GATE ══════════════════════
+// ?admin=1 in URL triggers the admin password modal — settings only visible after correct password
+let isAdminAuthed = false;
+
 if (urlParams.get('admin') === '1') {
-  const settingsTab = document.createElement('button');
-  settingsTab.className = 'nav-tab';
-  settingsTab.id = 'tab-settings';
-  settingsTab.textContent = 'Settings';
-  settingsTab.onclick = () => showView('settings');
-  document.getElementById('nav-tabs').appendChild(settingsTab);
+  // Clean the URL so ?admin=1 is not visible in the address bar
+  window.history.replaceState({}, document.title, window.location.pathname);
+  // Show admin password modal
+  setTimeout(() => {
+    document.getElementById('admin-pin-field').value = '';
+    document.getElementById('admin-pin-error').textContent = '';
+    document.getElementById('admin-pin-modal').classList.add('open');
+    setTimeout(() => document.getElementById('admin-pin-field').focus(), 120);
+  }, 300);
 }
+
+function verifyAdminPin() {
+  const entered = document.getElementById('admin-pin-field').value.trim();
+  const errEl = document.getElementById('admin-pin-error');
+  if (!entered) { errEl.textContent = 'Please enter the admin password.'; return; }
+
+  if (entered === state.adminPassword) {
+    isAdminAuthed = true;
+    document.getElementById('admin-pin-modal').classList.remove('open');
+    // Inject Settings tab
+    if (!document.getElementById('tab-settings')) {
+      const tab = document.createElement('button');
+      tab.className = 'nav-tab';
+      tab.id = 'tab-settings';
+      tab.textContent = 'Settings';
+      tab.onclick = () => showView('settings');
+      document.getElementById('nav-tabs').appendChild(tab);
+    }
+    showView('settings');
+    showToast('✓ Admin access granted');
+  } else {
+    errEl.textContent = 'Incorrect admin password.';
+    document.getElementById('admin-pin-field').select();
+  }
+}
+
+function toggleAdminPinVis() {
+  const f = document.getElementById('admin-pin-field');
+  const eye = document.getElementById('admin-pin-eye');
+  if (f.type === 'password') {
+    f.type = 'text';
+    eye.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>`;
+  } else {
+    f.type = 'password';
+    eye.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+  }
+}
+
 renderLocView();
 </script>
 </body>
