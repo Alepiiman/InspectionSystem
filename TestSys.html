@@ -646,12 +646,14 @@ let pinAttempts = 0;
 let checkedItems = {};
 let clockStarted = false;
 
-// URL param — detect location from QR scan
-const urlParams = new URLSearchParams(window.location.search);
-const locParam = urlParams.get('location'); // URLSearchParams auto-decodes both %20 and +
-let currentLocation = locParam
-  ? locParam.trim()
-  : (state.locations[0] || 'General Area');
+// URL param — read fresh every time renderLocView is called
+function getCurrentLocationFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const loc = params.get('location');
+  return loc ? loc.trim() : (state.locations[0] || 'General Area');
+}
+
+let currentLocation = getCurrentLocationFromURL();
 
 // ══════════════════════ NAV ══════════════════════
 function showView(id) {
@@ -668,20 +670,24 @@ function showView(id) {
 
 // ══════════════════════ LOCATION VIEW ══════════════════════
 function renderLocView() {
+  // Always re-read from URL so scanning a new QR always shows the right location
+  currentLocation = getCurrentLocationFromURL();
+
   // Match existing location case-insensitively to avoid duplicates
   const existingMatch = state.locations.find(l => l.toLowerCase() === currentLocation.toLowerCase());
   if (existingMatch) {
-    currentLocation = existingMatch; // use the canonical casing from saved list
+    currentLocation = existingMatch;
   } else {
     state.locations.push(currentLocation);
     saveState();
   }
+
+  const fromURL = new URLSearchParams(window.location.search).get('location');
   document.getElementById('loc-title').textContent = currentLocation;
   document.getElementById('loc-recent-title').textContent = currentLocation;
   document.getElementById('modal-loc-name').textContent = currentLocation;
-  // Show whether location came from URL param or default
   const debugEl = document.getElementById('loc-url-debug');
-  if (debugEl) debugEl.textContent = locParam ? `(from QR: ${locParam})` : '(default)';
+  if (debugEl) debugEl.textContent = fromURL ? `(from QR: ${fromURL})` : '(default)';
   updateStatusRow();
   renderRecentList();
   if (!clockStarted) { startClock(); clockStarted = true; }
@@ -1243,7 +1249,7 @@ function toggleAdminPinVis() {
 }
 
 // Check for ?admin=1 on page load
-if (urlParams.get('admin') === '1') {
+if (new URLSearchParams(window.location.search).get('admin') === '1') {
   // Remove ?admin=1 from URL bar without reloading
   const cleanUrl = window.location.origin + window.location.pathname;
   window.history.replaceState({}, document.title, cleanUrl);
