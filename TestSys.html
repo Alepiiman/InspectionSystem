@@ -311,6 +311,7 @@
     <div class="loc-eyebrow">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
       Inspection Point
+      <span id="loc-url-debug" style="color:var(--text-dim);font-size:9px;margin-left:4px"></span>
     </div>
     <h1 id="loc-title">—</h1>
     <div class="status-row">
@@ -647,8 +648,10 @@ let clockStarted = false;
 
 // URL param — detect location from QR scan
 const urlParams = new URLSearchParams(window.location.search);
-const locParam = urlParams.get('location');
-let currentLocation = locParam ? decodeURIComponent(locParam) : (state.locations[0] || 'General Area');
+const locParam = urlParams.get('location'); // URLSearchParams auto-decodes both %20 and +
+let currentLocation = locParam
+  ? locParam.trim()
+  : (state.locations[0] || 'General Area');
 
 // ══════════════════════ NAV ══════════════════════
 function showView(id) {
@@ -665,10 +668,20 @@ function showView(id) {
 
 // ══════════════════════ LOCATION VIEW ══════════════════════
 function renderLocView() {
-  if (!state.locations.includes(currentLocation)) { state.locations.push(currentLocation); saveState(); }
+  // Match existing location case-insensitively to avoid duplicates
+  const existingMatch = state.locations.find(l => l.toLowerCase() === currentLocation.toLowerCase());
+  if (existingMatch) {
+    currentLocation = existingMatch; // use the canonical casing from saved list
+  } else {
+    state.locations.push(currentLocation);
+    saveState();
+  }
   document.getElementById('loc-title').textContent = currentLocation;
   document.getElementById('loc-recent-title').textContent = currentLocation;
   document.getElementById('modal-loc-name').textContent = currentLocation;
+  // Show whether location came from URL param or default
+  const debugEl = document.getElementById('loc-url-debug');
+  if (debugEl) debugEl.textContent = locParam ? `(from QR: ${locParam})` : '(default)';
   updateStatusRow();
   renderRecentList();
   if (!clockStarted) { startClock(); clockStarted = true; }
@@ -1117,6 +1130,7 @@ function verifyQRPin() {
 }
 
 function showQRCode(loc) {
+  // Build base URL correctly — strip any existing ?query from current URL
   const base = window.location.origin + window.location.pathname;
   const url = `${base}?location=${encodeURIComponent(loc)}`;
   document.getElementById('qr-loc-name').textContent = loc;
