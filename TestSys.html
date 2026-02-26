@@ -450,7 +450,7 @@
       <label class="field-label">Change Security Key</label>
       <div style="display:flex;gap:10px">
         <input type="password" id="new-key-input" placeholder="New security key (min 4 characters)" style="flex:1"/>
-        <button class="btn-primary" onclick="saveKey()" style="white-space:nowrap;flex-shrink:0"> Save </button>
+        <button class="btn-primary" onclick="saveKey()" style="white-space:nowrap;flex-shrink:0">Save Key</button>
       </div>
     </div>
     <div style="background:rgba(0,229,160,.06);border:1px solid var(--accent-mid);border-radius:8px;padding:14px;font-size:12px;color:var(--text-muted);line-height:1.7">
@@ -646,14 +646,36 @@ let pinAttempts = 0;
 let checkedItems = {};
 let clockStarted = false;
 
+// ══════════════════════ QR TOKEN ══════════════════════
+// Each QR URL contains a token = simple hash of (location + secret).
+// Without the correct token, the URL is rejected.
+function generateToken(loc) {
+  // Simple but effective hash: FNV-1a on location + inspectorKey
+  const str = loc.toLowerCase().trim() + '|' + state.inspectorKey;
+  let hash = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = (hash * 16777619) >>> 0;
+  }
+  return hash.toString(36).toUpperCase().slice(0, 8);
+}
+
+function isValidQRToken(loc, token) {
+  if (!loc || !token) return false;
+  return generateToken(loc) === token.toUpperCase();
+}
+
 // URL param — read fresh every time renderLocView is called
 function getCurrentLocationFromURL() {
   const params = new URLSearchParams(window.location.search);
   const loc = params.get('location');
-  return loc ? loc.trim() : (state.locations[0] || 'General Area');
+  const token = params.get('t');
+  if (!loc) return null; // no location in URL
+  if (!isValidQRToken(loc.trim(), token)) return null; // invalid or missing token
+  return loc.trim();
 }
 
-let currentLocation = getCurrentLocationFromURL();
+let currentLocation = null;
 
 // ══════════════════════ NAV ══════════════════════
 function showView(id) {
@@ -670,8 +692,29 @@ function showView(id) {
 
 // ══════════════════════ LOCATION VIEW ══════════════════════
 function renderLocView() {
-  // Always re-read from URL so scanning a new QR always shows the right location
-  currentLocation = getCurrentLocationFromURL();
+  // Always re-read from URL fresh
+  const locFromURL = getCurrentLocationFromURL();
+
+  if (!locFromURL) {
+    // No valid QR token — show blocked state
+    document.getElementById('loc-title').textContent = 'Invalid Access';
+    document.getElementById('loc-recent-title').textContent = '—';
+    document.getElementById('modal-loc-name').textContent = '—';
+    const debugEl = document.getElementById('loc-url-debug');
+    if (debugEl) debugEl.textContent = '';
+    document.getElementById('loc-status-dot').className = 'dot danger';
+    document.getElementById('loc-last-txt').textContent = 'Please scan the QR code at the inspection point.';
+    document.getElementById('inspect-cta-btn').style.display = 'none';
+    document.getElementById('form-wrap').style.display = 'none';
+    document.getElementById('recent-list').innerHTML = '<div class="empty-state">⚠️ No valid QR code detected.<br><br>You must scan the physical QR code at the location to access this page.</div>';
+    document.getElementById('loc-count-tag').textContent = '–';
+    if (!clockStarted) { startClock(); clockStarted = true; }
+    return;
+  }
+
+  // Valid QR — proceed normally
+  document.getElementById('inspect-cta-btn').style.display = '';
+  currentLocation = locFromURL;
 
   // Match existing location case-insensitively to avoid duplicates
   const existingMatch = state.locations.find(l => l.toLowerCase() === currentLocation.toLowerCase());
@@ -1024,7 +1067,7 @@ function saveKey() {
   document.getElementById('key-display-val').classList.add('blurred');
   keyVis = false; document.getElementById('key-toggle-btn').textContent = 'Show';
   isAuthed = false; updateCTA();
-  showToast('✓ Security key updated!');
+  showToast('✓ Key updated! Re-generate all QR codes.');
 }
 
 let adminPwdVis = false;
@@ -1138,7 +1181,8 @@ function verifyQRPin() {
 function showQRCode(loc) {
   // Build base URL correctly — strip any existing ?query from current URL
   const base = window.location.origin + window.location.pathname;
-  const url = `${base}?location=${encodeURIComponent(loc)}`;
+  const token = generateToken(loc);
+  const url = `${base}?location=${encodeURIComponent(loc)}&t=${token}`;
   document.getElementById('qr-loc-name').textContent = loc;
   document.getElementById('qr-url-text').textContent = url;
 
@@ -1261,4 +1305,3 @@ renderLocView();
 </script>
 </body>
 </html>
-
