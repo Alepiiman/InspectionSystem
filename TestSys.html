@@ -581,9 +581,9 @@ function doPost(e) {
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3m3 0v.01M17 14v3m3-3h.01M20 20v.01"/></svg>
     </div>
     <h2>QR Code Access</h2>
-    <p>Enter the security key to generate and view the QR code for <strong id="qr-pin-loc-label" style="color:var(--text)">this location</strong>.</p>
+    <p>Enter the <strong style="color:var(--text)">admin password</strong> to generate and view the QR code for <strong id="qr-pin-loc-label" style="color:var(--text)">this location</strong>.</p>
     <div class="pin-wrap">
-      <input type="password" id="qr-pin-field" placeholder="Security key…" autocomplete="off"
+      <input type="password" id="qr-pin-field" placeholder="Admin password…" autocomplete="off"
         onkeydown="if(event.key==='Enter')verifyQRPin()" />
       <button class="pin-vis" onclick="toggleQRPinVis()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="qr-pin-eye">
@@ -1173,7 +1173,7 @@ function verifyQRPin() {
   const entered = document.getElementById('qr-pin-field').value.trim();
   const errEl = document.getElementById('qr-pin-error');
   if (!entered) { errEl.textContent = 'Please enter the security key.'; return; }
-  if (entered !== state.inspectorKey) { errEl.textContent = 'Incorrect security key.'; document.getElementById('qr-pin-field').select(); return; }
+  if (entered !== state.adminPassword) { errEl.textContent = 'Incorrect admin password.'; document.getElementById('qr-pin-field').select(); return; }
   document.getElementById('qr-pin-modal').classList.remove('open');
   showQRCode(pendingQRLoc);
 }
