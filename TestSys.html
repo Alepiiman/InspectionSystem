@@ -634,7 +634,15 @@ let state = {
 };
 
 function loadState() {
-  try { const s = localStorage.getItem('facilInspectV2'); if (s) state = {...state, ...JSON.parse(s)}; } catch(e) {}
+  try {
+    const s = localStorage.getItem('facilInspectV2');
+    if (s) {
+      const saved = JSON.parse(s);
+      state = {...state, ...saved};
+      // Migration: ensure adminPassword always exists
+      if (!state.adminPassword) { state.adminPassword = 'ADMIN1234'; saveState(); }
+    }
+  } catch(e) {}
 }
 function saveState() { localStorage.setItem('facilInspectV2', JSON.stringify(state)); }
 loadState();
@@ -1172,7 +1180,7 @@ function openQR(loc) {
 function verifyQRPin() {
   const entered = document.getElementById('qr-pin-field').value.trim();
   const errEl = document.getElementById('qr-pin-error');
-  if (!entered) { errEl.textContent = 'Please enter the security key.'; return; }
+  if (!entered) { errEl.textContent = 'Please enter the admin password.'; return; }
   if (entered !== state.adminPassword) { errEl.textContent = 'Incorrect admin password.'; document.getElementById('qr-pin-field').select(); return; }
   document.getElementById('qr-pin-modal').classList.remove('open');
   showQRCode(pendingQRLoc);
